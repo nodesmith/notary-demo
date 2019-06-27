@@ -1,0 +1,1 @@
+npx truffle init
