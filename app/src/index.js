@@ -4,11 +4,14 @@ import forTheRecordArtifact from "../../build/contracts/ForTheRecord.json";
 const App = {
   web3: null,
   contract: null,
+  eventListenerCb: null,
+  networkType: null,
 
   initialize: async function() {
     const { web3 } = this;
 
-    // get the contract instance
+    // get the contract instance and info about our network
+    this.networkType = await web3.eth.net.getNetworkType();
     const networkId = await web3.eth.net.getId();
     const deployedNetwork = forTheRecordArtifact.networks[networkId];
     this.contract = new web3.eth.Contract(
@@ -34,12 +37,72 @@ const App = {
   submitRecord: async function(message) {
     const account = await this.getAccount();
 
-    const { contract } = this;
-    const submitPromise = contract.methods.submitRecord(message).send({
+    const { contract, eventListenerCb, networkType } = this;
+    const transactionReceipt = await contract.methods.submitRecord(message).send({
       from: account
+    })
+    .once('transactionHash', (transactionHash) => {
+      console.log(`Transaction hash was ${transactionHash}`);
+      if (eventListenerCb) {
+        eventListenerCb({
+          blockNumber: 'pending',
+          transactionHash: transactionHash,
+          message: message,
+          fromAddress: account,
+          state: 'pending',
+          networkType: networkType
+        });
+      }
+    })
+    .on('error', (error) => {
+      console.error(error);
+    });
+
+    console.log(`Transaction receipt ${JSON.stringify(transactionReceipt)}`);
+  },
+
+  listenForEvents: function (cb) {
+    // Save off the event listener
+    this.eventListenerCb = cb;
+
+    const { contract, networkType, eventListenerCb } = this;
+
+    contract.events.RecordSaved({ fromBlock: 0 })
+    .on('data', (event) => {
+      // We've received our event, pull out the properties we want to send back
+      eventListenerCb({
+        blockNumber: event.blockNumber,
+        transactionHash: event.transactionHash,
+        message: event.returnValues.message,
+        fromAddress: event.returnValues.fromAddress,
+        state: event.type,
+        networkType: networkType
+      });
+    })
+  },
+
+  sendEventNotification: function(blockNumber, transactionHash, message, fromAddress, state, networkType) {
+    this.eventListenerCb({
+      blockNumber, transactionHash, message, fromAddress, state, networkType
     });
   }
 }
+
+const createListItem = ({message, state, transactionHash, blockNumber, fromAddress, networkType}) => {
+  const blockExplorerUrl = `https://blockscout.com/eth/${networkType}/tx/${transactionHash}`;
+
+  return `
+<li class="media py-2 my-1 pl-2 list-group-item-action record" id="${transactionHash}" onclick="window.open('${blockExplorerUrl}')">
+  <h4 class="align-self-center mr-3"><span class="badge badge-${state === 'mined' ? 'success' : 'warning'}">${state}</span></h4>
+  <div class="media-body">
+    <h6 class="h5 mb-0">${message}</h6>
+    <span class="text-muted h6 small"> Block ${blockNumber} </span>
+    <span class="text-muted h6 small"> • </span>
+    <span class="text-muted h6 small">${fromAddress}</span>
+  </div>
+</li>
+`
+};
 
 $(document).ready(async () => {
   if (!window.ethereum) {
@@ -52,6 +115,11 @@ $(document).ready(async () => {
 
   await App.initialize();
   console.log('Application initialized');
+
+  App.listenForEvents((event) => {
+    $(`#${event.transactionHash}`).remove();
+    $('#records-list').prepend($(createListItem(event)));
+  })
 
   const numberOfRecords = await App.getNumberOfRecords();
   console.log(numberOfRecords);

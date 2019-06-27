@@ -3,6 +3,14 @@
   <head>
     <title>Notary Demo - Nodesmith</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <style>
+      .record {
+        cursor: pointer;
+      }
+      .record > * { 
+        pointer-events: none
+      }
+    </style>
   </head>
   
   <body>
@@ -31,22 +39,7 @@
         </div>
         <div class="row mt-4 mx-auto justify-content-center">
           <div class="col-sm-8">
-            <ul class="list-unstyled" id="list-records">
-              <li class="media">
-                <h4 class="align-self-center mr-3"><span class="badge badge-secondary">✓</span></h4>
-                <div class="media-body">
-                  <h6 class="h5 mb-0">This is the actual message</h6>
-                  <span class="text-muted">0xfoo132489071324237598237569827589234</span>
-                </div>
-              </li>
-              <li class="media">
-                <h4 class="align-self-center mr-3"><span class="badge badge-secondary">…</span></h4>
-                <div class="media-body">
-                  This is the actual message
-                  <h6>0xfoo132489071324237598237569827589234</h6>
-                </div>
-              </li>
-              
+            <ul class="list-unstyled" id="records-list">
             </ul>
           </div>
         </div>
