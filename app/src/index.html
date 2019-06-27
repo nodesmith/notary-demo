@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Notary Demo - Nodesmith</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+  </head>
+  
+  <body>
+    <div class="container-fluid">
+      <div class="row bg-dark pt-2">
+        <div class="col">
+          <h1 class="h1 text-light text-center">For The Record</h1>
+          <p class="text-light text-center">Enter a message below to save into the blockchain</p>
+        </div>
+        </div>
+      </div>
+      <div class="row bg-dark justify-content-center pb-4">
+        <div class="col-sm-6">
+          <div class="input-group input-group-lg">
+              <input id="input-message" type="text" class="form-control" placeholder="Your Message" aria-label="Your Message" aria-describedby="button-submit">
+              <div class="input-group-append">
+                <button class="btn btn-primary" type="button" id="button-submit">Submit</button>
+              </div>
+            </div>
+        </div>
+        </div>
+        <div class="row mt-4 mx-auto">
+          <div class="col">
+            <h3 class="text-center">Submitted Records</h3>
+          </div>
+        </div>
+        <div class="row mt-4 mx-auto justify-content-center">
+          <div class="col-sm-8">
+            <ul class="list-unstyled" id="list-records">
+              <li class="media">
+                <h4 class="align-self-center mr-3"><span class="badge badge-secondary">✓</span></h4>
+                <div class="media-body">
+                  <h6 class="h5 mb-0">This is the actual message</h6>
+                  <span class="text-muted">0xfoo132489071324237598237569827589234</span>
+                </div>
+              </li>
+              <li class="media">
+                <h4 class="align-self-center mr-3"><span class="badge badge-secondary">…</span></h4>
+                <div class="media-body">
+                  This is the actual message
+                  <h6>0xfoo132489071324237598237569827589234</h6>
+                </div>
+              </li>
+              
+            </ul>
+          </div>
+        </div>
+      </div>
+
+
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+    <script src="index.js"></script>
+  </body>
+</html>
