@@ -1,7 +1,7 @@
 import Web3 from 'web3';
 import forTheRecordArtifact from '../../build/contracts/ForTheRecord.json';
 
-const App = {
+const app = {
   web3: null,
   contract: null,
   newRecordCallback: null,
@@ -50,14 +50,12 @@ const App = {
   submitRecord: async function(message) {
     const account = await this.getAccount();
 
-    const { contract, eventListenerCb, networkType } = this;
-    const transactionReceipt = await contract.methods.submitRecord(message).send({
-      from: account
-    })
-    .once('transactionHash', (transactionHash) => {
-      console.log(`Transaction hash was ${transactionHash}`);
-      if (eventListenerCb) {
-        eventListenerCb({
+    const { contract, newRecordCallback, networkType } = this;
+    const transactionReceipt = await contract.methods.submitRecord(message).send({ from: account })
+      .once('transactionHash', (transactionHash) => {
+
+        // Once we have a transaction hash add this item to the list in a pending state
+        newRecordCallback({
           blockNumber: 'pending',
           transactionHash: transactionHash,
           message: message,
@@ -65,40 +63,35 @@ const App = {
           state: 'pending',
           networkType: networkType
         });
-      }
-    })
-    .on('error', (error) => {
-      console.error(error);
-    });
+      })
+      .on('error', (error) => {
+        $('#warning-message').text(error.toString());
+        $('.alert').show();
+      });
 
     console.log(`Transaction receipt ${JSON.stringify(transactionReceipt)}`);
-  },
-
-  listenForEvents: function (cb) {
-    // Save off the event listener
-    this.eventListenerCb = cb;
-
-    const { contract, networkType, eventListenerCb } = this;
-
-    contract.events.RecordSaved({ fromBlock: 0 })
-    .on('data', (event) => {
-      // We've received our event, pull out the properties we want to send back
-      eventListenerCb({
-        blockNumber: event.blockNumber,
-        transactionHash: event.transactionHash,
-        message: event.returnValues.message,
-        fromAddress: event.returnValues.fromAddress,
-        state: event.type,
-        networkType: networkType
-      });
-    })
   }
 }
 
+$(document).ready(async () => {
+  if (!window.ethereum) {
+    return alert(`window.ethereum is not defined. Make sure you have a wallet like MetaMask installed.`);
+  }
+
+  app.initialize(new Web3(window.ethereum), createListItem);
+
+  $('#button-submit').click(() => {
+    const message = $('#input-message').val();
+    if (message) {
+      app.submitRecord(message);
+    }
+  });
+})
+
+// Helper method for adding an item to the list of records we're showing
 const createListItem = ({message, state, transactionHash, blockNumber, fromAddress, networkType}) => {
   const blockExplorerUrl = `https://blockscout.com/eth/${networkType}/tx/${transactionHash}`;
-
-  return `
+  const recordListItem = $(`
 <li class="media py-2 my-1 pl-2 list-group-item-action record" id="${transactionHash}" onclick="window.open('${blockExplorerUrl}')">
   <h4 class="align-self-center mr-3"><span class="badge badge-${state === 'mined' ? 'success' : 'warning'}">${state}</span></h4>
   <div class="media-body">
@@ -107,44 +100,8 @@ const createListItem = ({message, state, transactionHash, blockNumber, fromAddre
     <span class="text-muted h6 small"> • </span>
     <span class="text-muted h6 small">${fromAddress}</span>
   </div>
-</li>
-`
+</li>`);
+
+  $(`#${transactionHash}`).remove();
+  $('#records-list').prepend(recordListItem);
 };
-
-$(document).ready(async () => {
-  if (!window.ethereum) {
-    return alert(`window.ethereum is not defined. Make sure you have a wallet installed.`);
-  }
-
-  const onNewRecord = (record) => {
-    $(`#${record.transactionHash}`).remove();
-    $('#records-list').prepend($(createListItem(record)));
-  }
-
-  App.initialize(new Web3(window.ethereum), onNewRecord);
-
-
-  $('#button-submit').click(() => {
-    const message = $('#input-message').val();
-    if (message) {
-      App.submitRecord(message);
-    } else {
-      // Message is empty, don't submit that
-    }
-  });
-
-
-  // App.web3 = new Web3(window.ethereum);
-  // await window.ethereum.enable();
-
-  // await App.initialize();
-  // console.log('Application initialized');
-
-  // App.listenForEvents((event) => {
-  //   $(`#${event.transactionHash}`).remove();
-  //   $('#records-list').prepend($(createListItem(event)));
-  // })
-
-
-
-})
