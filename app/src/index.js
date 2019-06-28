@@ -1,31 +1,46 @@
 import Web3 from 'web3';
 import forTheRecordArtifact from '../../build/contracts/ForTheRecord.json';
 
+// Group the main logic of the dApp into this app object
 const app = {
-  web3: null,
-  contract: null,
-  newRecordCallback: null,
-  networkType: null,
 
+  /** Initialized instance of the Web3 library */
+  web3: null,
+
+  /** The instance of the ForTheRecord smart contract we're interacting with */
+  contract: null,
+
+  /** Callback fired whenever a new event log is received */
+  newRecordCallback: null,
+
+  /** string describing the network we're connected to (something like mainnet, kovan, etc.) */
+  networkType: '',
+
+  /**
+   * Initializes our application, grabbing the contract and registering for various events
+   * @param {Web3} web3 An initialized instance of Web3 with a valid provider.
+   * @param {(record) => void} newRecordCallback Callback which will fire when loading historical records from
+   * the network and when new records are seen (which may not be confirmed yet) from the network.
+   */
   initialize: async function(web3, newRecordCallback) {
+    // Save these for later use
     this.web3 = web3;
     this.newRecordCallback = newRecordCallback;
 
-    // get the contract instance and info about our network
+    // Get info about the network we're connected to and the appropriate deployed contract metadata
     const networkType = await web3.eth.net.getNetworkType();
+    this.networkType = networkType;
     const networkId = await web3.eth.net.getId();
     const deployedNetwork = forTheRecordArtifact.networks[networkId];
 
-    // Once we know which network we're using we can create the contract instance
-    const contract = new web3.eth.Contract(
+    // Once we know which network we're using we can create the contract instance and save it 
+    this.contract = new web3.eth.Contract(
       forTheRecordArtifact.abi,
       deployedNetwork.address,
     );
-    this.networkType = networkType;
-    this.contract = contract;
 
     // Read the current records that are saved and get notified when new ones come in
-    contract.events.RecordSaved({ fromBlock: 0 }).on('data', (event) => {
+    this.contract.events.RecordSaved({ fromBlock: 0 }).on('data', (event) => {
 
       // We've received our event, pull out the properties we want to send back
       newRecordCallback({
@@ -39,18 +54,19 @@ const app = {
     });
   },
 
-  getAccount: async function() {
+  /**
+   * Stores a new message in smart contract. Returns once the transaction receipt has been received.
+   * @param {string} message The message we want to store in the smart contract
+   */
+  submitRecord: async function(message) {
+    const { web3, contract, newRecordCallback, networkType } = this;
+
     // Request accounts and save accounts[0] which is the current account. This will prompt the user for
     // permission to view the accounts if it's their first time using the dApp
-    const { web3 } = this;
     const accounts = await web3.eth.requestAccounts();
-    return accounts[0];
-  },
+    const account = accounts[0];
 
-  submitRecord: async function(message) {
-    const account = await this.getAccount();
-
-    const { contract, newRecordCallback, networkType } = this;
+    // Actually send our transaction in and listen for the various callback events
     const transactionReceipt = await contract.methods.submitRecord(message).send({ from: account })
       .once('transactionHash', (transactionHash) => {
 
@@ -69,17 +85,22 @@ const app = {
         $('.alert').show();
       });
 
-    console.log(`Transaction receipt ${JSON.stringify(transactionReceipt)}`);
+    return transactionReceipt;
   }
 }
 
+// When the document has loaded, initialize our application.
 $(document).ready(async () => {
+
+  // Make sure there is an injected web3 provider
   if (!window.ethereum) {
     return alert(`window.ethereum is not defined. Make sure you have a wallet like MetaMask installed.`);
   }
 
-  app.initialize(new Web3(window.ethereum), createListItem);
+  // Initialize the primary logic in the app object
+  await app.initialize(new Web3(window.ethereum), createListItem);
 
+  // Add an event listener to handle submitting the transaction to the network
   $('#button-submit').click(() => {
     const message = $('#input-message').val();
     if (message) {
@@ -88,7 +109,11 @@ $(document).ready(async () => {
   });
 })
 
-// Helper method for adding an item to the list of records we're showing
+/**
+ * Helper method for adding an item to the list of records we're showing. This builds up and appends an html element to the
+ * list of records, removing any existing elements with the same transaction hash first to avoid duplicates.
+ * @param {*} param0 
+ */
 const createListItem = ({message, state, transactionHash, blockNumber, fromAddress, networkType}) => {
   const blockExplorerUrl = `https://blockscout.com/eth/${networkType}/tx/${transactionHash}`;
   const recordListItem = $(`
