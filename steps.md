@@ -1,8 +1,8 @@
 # Create the truffle project
-npx truffle init
+truffle unbox webpack
 
 # Start the server
-npx http-server && open http://localhost:8080
+cd app && npm install && npm run dev
 
 
 
