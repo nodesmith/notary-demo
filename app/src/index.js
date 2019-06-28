@@ -1,5 +1,6 @@
 import Web3 from 'web3';
 import forTheRecordArtifact from '../../build/contracts/ForTheRecord.json';
+import * as uiHelpers from './ui-helpers';
 
 // Group the main logic of the dApp into this app object
 const app = {
@@ -10,27 +11,21 @@ const app = {
   /** The instance of the ForTheRecord smart contract we're interacting with */
   contract: null,
 
-  /** Callback fired whenever a new event log is received */
-  newRecordCallback: null,
-
   /** string describing the network we're connected to (something like mainnet, kovan, etc.) */
   networkType: '',
 
   /**
    * Initializes our application, grabbing the contract and registering for various events
    * @param {Web3} web3 An initialized instance of Web3 with a valid provider.
-   * @param {(record) => void} newRecordCallback Callback which will fire when loading historical records from
-   * the network and when new records are seen (which may not be confirmed yet) from the network.
    */
-  initialize: async function(web3, newRecordCallback) {
+  initialize: async function(web3) {
     // Save these for later use
     this.web3 = web3;
-    this.newRecordCallback = newRecordCallback;
 
     // Get info about the network we're connected to and the appropriate deployed contract metadata
     const networkType = await web3.eth.net.getNetworkType();
     this.networkType = networkType;
-    $('#network-type').text(` - ${networkType} network`);
+    uiHelpers.setNetworkType(networkType);
 
     const networkId = await web3.eth.net.getId();
     const deployedNetwork = forTheRecordArtifact.networks[networkId];
@@ -47,7 +42,7 @@ const app = {
       // We've received our event, pull out the properties we want to send back
       const { blockNumber, transactionHash, type } = event;
       const { message, fromAddress } = event.returnValues;
-      newRecordCallback({blockNumber, transactionHash, message, fromAddress, state: type, networkType});
+      uiHelpers.createListItem({blockNumber, transactionHash, message, fromAddress, state: type, networkType});
     });
   },
 
@@ -56,7 +51,7 @@ const app = {
    * @param {string} message The message we want to store in the smart contract
    */
   submitRecord: async function(message) {
-    const { web3, contract, newRecordCallback, networkType } = this;
+    const { web3, contract, networkType } = this;
 
     // Request accounts and save accounts[0] which is the current account. This will prompt the user for
     // permission to view the accounts if it's their first time using the dApp
@@ -67,11 +62,10 @@ const app = {
     const transactionReceipt = await contract.methods.submitRecord(message).send({ from: fromAddress })
       .once('transactionHash', (transactionHash) => {
         // Once we have a transaction hash add this item to the list in a pending state
-        newRecordCallback({blockNumber: 'pending', transactionHash, message, fromAddress, state: 'pending', networkType});
+        uiHelpers.createListItem({blockNumber: 'pending', transactionHash, message, fromAddress, state: 'pending', networkType});
       })
       .on('error', (error) => {
-        $('#warning-message').text(error.toString());
-        $('.alert').show();
+        uiHelpers.showError(error.toString());
       });
 
     return transactionReceipt;
@@ -83,11 +77,11 @@ $(document).ready(async () => {
 
   // Make sure there is an injected web3 provider
   if (!window.ethereum) {
-    return alert(`window.ethereum is not defined. Make sure you have a wallet like MetaMask installed.`);
+    uiHelpers.showError(`window.ethereum is not defined. Make sure you have a wallet like MetaMask installed.`);
   }
 
   // Initialize the primary logic in the app object
-  await app.initialize(new Web3(window.ethereum), createListItem);
+  await app.initialize(new Web3(window.ethereum));
 
   // Add an event listener to handle submitting the transaction to the network
   $('#button-submit').click(() => {
@@ -97,25 +91,3 @@ $(document).ready(async () => {
     }
   });
 })
-
-/**
- * Helper method for adding an item to the list of records we're showing. This builds up and appends an html element to the
- * list of records, removing any existing elements with the same transaction hash first to avoid duplicates.
- * @param {*} param0 
- */
-const createListItem = ({message, state, transactionHash, blockNumber, fromAddress, networkType}) => {
-  const blockExplorerUrl = `https://blockscout.com/eth/${networkType}/tx/${transactionHash}`;
-  const recordListItem = $(`
-<li class="media py-2 my-1 pl-2 list-group-item-action record" id="${transactionHash}" onclick="window.open('${blockExplorerUrl}')">
-  <h4 class="align-self-center mr-3"><span class="badge badge-${state === 'mined' ? 'success' : 'warning'}">${state}</span></h4>
-  <div class="media-body">
-    <h6 class="h5 mb-0">${message}</h6>
-    <span class="text-muted h6 small"> Block ${blockNumber} </span>
-    <span class="text-muted h6 small"> • </span>
-    <span class="text-muted h6 small">${fromAddress}</span>
-  </div>
-</li>`);
-
-  $(`#${transactionHash}`).remove();
-  $('#records-list').prepend(recordListItem);
-};
