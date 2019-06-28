@@ -30,6 +30,8 @@ const app = {
     // Get info about the network we're connected to and the appropriate deployed contract metadata
     const networkType = await web3.eth.net.getNetworkType();
     this.networkType = networkType;
+    $('#network-type').text(` - ${networkType} network`);
+
     const networkId = await web3.eth.net.getId();
     const deployedNetwork = forTheRecordArtifact.networks[networkId];
 
@@ -43,14 +45,9 @@ const app = {
     this.contract.events.RecordSaved({ fromBlock: 0 }).on('data', (event) => {
 
       // We've received our event, pull out the properties we want to send back
-      newRecordCallback({
-        blockNumber: event.blockNumber,
-        transactionHash: event.transactionHash,
-        message: event.returnValues.message,
-        fromAddress: event.returnValues.fromAddress,
-        state: event.type,
-        networkType: networkType
-      });
+      const { blockNumber, transactionHash, type } = event;
+      const { message, fromAddress } = event.returnValues;
+      newRecordCallback({blockNumber, transactionHash, message, fromAddress, state: type, networkType});
     });
   },
 
@@ -64,21 +61,13 @@ const app = {
     // Request accounts and save accounts[0] which is the current account. This will prompt the user for
     // permission to view the accounts if it's their first time using the dApp
     const accounts = await web3.eth.requestAccounts();
-    const account = accounts[0];
+    const fromAddress = accounts[0];
 
     // Actually send our transaction in and listen for the various callback events
-    const transactionReceipt = await contract.methods.submitRecord(message).send({ from: account })
+    const transactionReceipt = await contract.methods.submitRecord(message).send({ from: fromAddress })
       .once('transactionHash', (transactionHash) => {
-
         // Once we have a transaction hash add this item to the list in a pending state
-        newRecordCallback({
-          blockNumber: 'pending',
-          transactionHash: transactionHash,
-          message: message,
-          fromAddress: account,
-          state: 'pending',
-          networkType: networkType
-        });
+        newRecordCallback({blockNumber: 'pending', transactionHash, message, fromAddress, state: 'pending', networkType});
       })
       .on('error', (error) => {
         $('#warning-message').text(error.toString());
