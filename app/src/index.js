@@ -1,37 +1,50 @@
-import Web3 from "web3";
-import forTheRecordArtifact from "../../build/contracts/ForTheRecord.json";
+import Web3 from 'web3';
+import forTheRecordArtifact from '../../build/contracts/ForTheRecord.json';
 
 const App = {
   web3: null,
   contract: null,
-  eventListenerCb: null,
+  newRecordCallback: null,
   networkType: null,
 
-  initialize: async function() {
-    const { web3 } = this;
+  initialize: async function(web3, newRecordCallback) {
+    this.web3 = web3;
+    this.newRecordCallback = newRecordCallback;
 
     // get the contract instance and info about our network
-    this.networkType = await web3.eth.net.getNetworkType();
+    const networkType = await web3.eth.net.getNetworkType();
     const networkId = await web3.eth.net.getId();
     const deployedNetwork = forTheRecordArtifact.networks[networkId];
-    this.contract = new web3.eth.Contract(
+
+    // Once we know which network we're using we can create the contract instance
+    const contract = new web3.eth.Contract(
       forTheRecordArtifact.abi,
       deployedNetwork.address,
     );
+    this.networkType = networkType;
+    this.contract = contract;
 
+    // Read the current records that are saved and get notified when new ones come in
+    contract.events.RecordSaved({ fromBlock: 0 }).on('data', (event) => {
+
+      // We've received our event, pull out the properties we want to send back
+      newRecordCallback({
+        blockNumber: event.blockNumber,
+        transactionHash: event.transactionHash,
+        message: event.returnValues.message,
+        fromAddress: event.returnValues.fromAddress,
+        state: event.type,
+        networkType: networkType
+      });
+    });
   },
 
   getAccount: async function() {
-    // get accounts and save accounts[0] which is the current account
+    // Request accounts and save accounts[0] which is the current account. This will prompt the user for
+    // permission to view the accounts if it's their first time using the dApp
     const { web3 } = this;
-    const accounts = await web3.eth.getAccounts();
+    const accounts = await web3.eth.requestAccounts();
     return accounts[0];
-  },
-
-  getNumberOfRecords: async function() {
-    const { contract } = this;
-    const result = await contract.methods.numberOfRecords().call();
-    return result;
   },
 
   submitRecord: async function(message) {
@@ -79,12 +92,6 @@ const App = {
         networkType: networkType
       });
     })
-  },
-
-  sendEventNotification: function(blockNumber, transactionHash, message, fromAddress, state, networkType) {
-    this.eventListenerCb({
-      blockNumber, transactionHash, message, fromAddress, state, networkType
-    });
   }
 }
 
@@ -109,22 +116,12 @@ $(document).ready(async () => {
     return alert(`window.ethereum is not defined. Make sure you have a wallet installed.`);
   }
 
-  // Create our web3 instance and ask to enable access to the user's accounts
-  App.web3 = new Web3(window.ethereum);
-  await window.ethereum.enable();
+  const onNewRecord = (record) => {
+    $(`#${record.transactionHash}`).remove();
+    $('#records-list').prepend($(createListItem(record)));
+  }
 
-  await App.initialize();
-  console.log('Application initialized');
-
-  App.listenForEvents((event) => {
-    $(`#${event.transactionHash}`).remove();
-    $('#records-list').prepend($(createListItem(event)));
-  })
-
-  const numberOfRecords = await App.getNumberOfRecords();
-  console.log(numberOfRecords);
-
-
+  App.initialize(new Web3(window.ethereum), onNewRecord);
 
 
   $('#button-submit').click(() => {
@@ -134,7 +131,20 @@ $(document).ready(async () => {
     } else {
       // Message is empty, don't submit that
     }
-    
   });
+
+
+  // App.web3 = new Web3(window.ethereum);
+  // await window.ethereum.enable();
+
+  // await App.initialize();
+  // console.log('Application initialized');
+
+  // App.listenForEvents((event) => {
+  //   $(`#${event.transactionHash}`).remove();
+  //   $('#records-list').prepend($(createListItem(event)));
+  // })
+
+
 
 })
