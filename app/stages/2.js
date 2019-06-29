@@ -31,3 +31,9 @@ $('#button-submit').click(() => {
     app.submitRecord(message);
   }
 });
+
+
+// Add submitRecord method which is empty besides a log line
+// Wire up the click handler an call submit record
+// Add the request accounts part to show and explain the popup
+// actually do the submitRecord call and send it

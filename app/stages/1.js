@@ -49,3 +49,5 @@ $(document).ready(async () => {
   // Initialize the primary logic in the app object
   await app.initialize(new Web3(window.ethereum));
 })
+
+// Create the app object
